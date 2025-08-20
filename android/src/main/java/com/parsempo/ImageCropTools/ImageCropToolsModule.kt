@@ -1,4 +1,4 @@
-package com.parsempo.ImageCropTools
+package com.roli5005.ImageCropTools
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
