@@ -3,6 +3,13 @@
   "title": "React Native Image Crop Tools",
   "version": "1.9.3",
   "description": "Native image crop tools with embeddable UI and on the fly aspect ratio switchin",
+  "files": [
+    "dist",
+    "android",
+    "ios",
+    "README.md",
+    "react-native-image-crop-tools.podspec"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
