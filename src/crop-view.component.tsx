@@ -51,9 +51,32 @@ class CropView extends React.PureComponent<Props> {
     );
   };
 
+  public flipImageHorizontally = () => {
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this.viewRef.current!),
+      UIManager.getViewManagerConfig('CropView').Commands.flipImageHorizontally,
+      []
+    );
+  };
+
+  public flipImageVertically = () => {
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this.viewRef.current!),
+      UIManager.getViewManagerConfig('CropView').Commands.flipImageVertically,
+      []
+    );
+  };
+
+  public resetImage = () => {
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this.viewRef.current!),
+      UIManager.getViewManagerConfig('CropView').Commands.resetImage,
+      []
+    );
+  };
+
   public render() {
     const { onImageCrop, aspectRatio, ...rest } = this.props;
-
     return (
       <RCTCropView
         ref={this.viewRef}

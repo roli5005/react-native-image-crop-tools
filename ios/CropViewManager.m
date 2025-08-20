@@ -23,7 +23,6 @@ RCT_EXPORT_VIEW_PROPERTY(keepAspectRatio, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(cropAspectRatio, CGSize)
 RCT_EXPORT_VIEW_PROPERTY(iosDimensionSwapEnabled, BOOL)
 
-
 RCT_EXPORT_METHOD(saveImage:(nonnull NSNumber*) reactTag
                   preserveTransparency:(BOOL) preserveTransparency
                   quality:(nonnull NSNumber *) quality) {
@@ -31,8 +30,8 @@ RCT_EXPORT_METHOD(saveImage:(nonnull NSNumber*) reactTag
         RCTCropView *cropView = (RCTCropView *)viewRegistry[reactTag];
         CGRect cropFrame = [cropView getCropFrame];
         UIImage *image = [cropView getCroppedImage];
-
         NSString *extension = @"jpg";
+        
         if ([[image valueForKey:@"hasAlpha"] boolValue] && preserveTransparency) {
             extension = @"png";
         }
@@ -42,7 +41,7 @@ RCT_EXPORT_METHOD(saveImage:(nonnull NSNumber*) reactTag
 
         if ([[image valueForKey:@"hasAlpha"] boolValue] && preserveTransparency) {
             [UIImagePNGRepresentation(image) writeToURL:url atomically:YES];
-        }else {
+        } else {
             [UIImageJPEGRepresentation(image, [quality floatValue] / 100.0f) writeToURL:url atomically:YES];
         }
 
@@ -60,6 +59,27 @@ RCT_EXPORT_METHOD(rotateImage:(nonnull NSNumber*) reactTag clockwise:(BOOL) cloc
     [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
         RCTCropView *cropView = (RCTCropView *)viewRegistry[reactTag];
         [cropView rotateImage:clockwise];
+    }];
+}
+
+RCT_EXPORT_METHOD(flipImageHorizontally:(nonnull NSNumber*) reactTag) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        RCTCropView *cropView = (RCTCropView *)viewRegistry[reactTag];
+        [cropView flipImageHorizontally];
+    }];
+}
+
+RCT_EXPORT_METHOD(flipImageVertically:(nonnull NSNumber*) reactTag) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        RCTCropView *cropView = (RCTCropView *)viewRegistry[reactTag];
+        [cropView flipImageVertically];
+    }];
+}
+
+RCT_EXPORT_METHOD(resetImage:(nonnull NSNumber*) reactTag) {
+    [self.bridge.uiManager addUIBlock:^(RCTUIManager *uiManager, NSDictionary<NSNumber *,UIView *> *viewRegistry) {
+        RCTCropView *cropView = (RCTCropView *)viewRegistry[reactTag];
+        [cropView resetImage];
     }];
 }
 

@@ -1,5 +1,19 @@
 # react-native-image-crop-tools
 
+# Enhanced Crop View Library
+
+This is a fork of [hhunaid/react-native-image-crop-tools](https://github.com/hhunaid/react-native-image-crop-tools) by [Hunaid Hassan] with additional functionality.
+
+## What's New
+- Added `flipImageHorizontally()` method
+- Added `flipImageVertically()` method
+- Added `resetImage()` method
+
+## Credits
+Original library created by [Hunaid Hassan](https://github.com/hhunaid).
+Enhanced and maintained by [Your Name].
+
+
 ## Previews
 <p float="left">
   <img src="https://github.com/hhunaid/react-native-image-crop-tools/blob/master/previews/android-preview.gif?raw=true" width="150" />

@@ -19,8 +19,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) RCTDirectEventBlock onImageSaved;
 
 - (UIImage *)getCroppedImage;
-- (CGRect)getCropFrame;
 - (void)rotateImage:(BOOL)clockwise;
+- (void)flipImageHorizontally;
+- (void)flipImageVertically;
+- (void)resetImage;
+- (CGRect)getCropFrame;
 
 @end
 
