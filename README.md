@@ -8,6 +8,7 @@ This is a fork of [hhunaid/react-native-image-crop-tools](https://github.com/hhu
 - Added `flipImageHorizontally()` method
 - Added `flipImageVertically()` method
 - Added `resetImage()` method
+- Added proper transformation chains
 
 ## Credits
 Original library created by [Hunaid Hassan](https://github.com/hhunaid).
@@ -22,7 +23,7 @@ Enhanced by Soos Roland.
 
 ## Getting started
 
-`$ yarn add react-native-image-crop-tools`
+`$ npm install @roli5005/react-native-image-crop-tools@latest`
 
 ### Automatic installation
 
@@ -39,6 +40,8 @@ Most cropping tools available for RN are usually wrappers over popular native to
 1. Native views. Which means performance even on low end devices.
 2. You can embed the view into you own UI. It's not very customizable (yet)
 3. Change and lock/unlock aspect ratio on the fly (This is the main reason I am making this library)
+4. Flip image vertically and horizontally.
+5. Image transformations (rotate, flip) now properly compound and preserve their cumulative effect - for example, rotating left then flipping horizontally keeps the image rotated while flipping its content, rather than resetting to the original orientation.
 
 # NOTE
 
@@ -58,11 +61,14 @@ import { CropView } from 'react-native-image-crop-tools';
         />
 ```
 
-Two methods are exposed on the ref you can use them as follows
+The following methods are exposed on the ref. You can use them as follows
 
 ```javascript
-  this.cropViewRef.saveImage(true, 90 // image quality percentage)
-  this.cropViewRef.rotateImage(true // true for clockwise, false for counterclockwise)
+  cropViewRef.current?.saveImage(true, 100); // image quality percentage)
+  cropViewRef.current?.rotateImage(true);// true for clockwise, false for counterclockwise)
+  cropViewRef.current?.flipImageHorizontally();
+  cropViewRef?.current?.flipImageVertically();
+  cropViewRef.current?.resetImage();
 ```
 
 ### Props
