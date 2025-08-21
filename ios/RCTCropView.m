@@ -13,11 +13,13 @@
 @implementation RCTCropView {
     TOCropView * _inlineCropView;
     UIImage * _originalImage; // Store original image for reset
-    UIImage * _currentTransformedImage; // Store current transformed image
+    UIImage * _currentTransformedImage; // Store current transformed image with all transformations applied
     NSString * _lastSourceUrl; // Track source URL changes
     
     // State preservation variables
-    CGFloat _savedAngle;
+    CGFloat _currentRotationAngle; // Track total rotation
+    CGRect _savedCropFrame;
+    CGSize _savedImageSize;
     BOOL _hasValidSavedState;
 }
 
@@ -61,7 +63,8 @@
             _originalImage = image;
             _currentTransformedImage = image;
             _lastSourceUrl = sourceUrl;
-            _hasValidSavedState = NO; // Clear saved state for new image
+            _currentRotationAngle = 0;
+            _hasValidSavedState = NO;
         }
         
         // Remove existing crop view if present
@@ -129,54 +132,83 @@
 }
 
 - (void)rotateImage:(BOOL)clockwise {
-    // Save current state before rotation
+    if (!_inlineCropView) return;
+    
+    // Save current crop state
     [self saveCropViewState];
     
-    [_inlineCropView rotateImageNinetyDegreesAnimated:YES clockwise:clockwise];
+    // Apply rotation to the actual image
+    CGFloat rotationAngle = clockwise ? 90.0 : -90.0;
+    _currentRotationAngle += rotationAngle;
     
-    // Update the current transformed image to match the rotation
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        self->_currentTransformedImage = self->_inlineCropView.image;
-        // Update saved state after the rotation animation completes
-        [self saveCropViewState];
-    });
+    // Normalize angle to 0-360 range
+    while (_currentRotationAngle >= 360) _currentRotationAngle -= 360;
+    while (_currentRotationAngle < 0) _currentRotationAngle += 360;
+    
+    // Apply the rotation to the current transformed image
+    UIImage *rotatedImage = [self rotateImageByDegrees:_currentTransformedImage degrees:rotationAngle];
+    _currentTransformedImage = rotatedImage;
+    
+    // Recreate the crop view with the rotated image
+    [_inlineCropView removeFromSuperview];
+    _inlineCropView = [[TOCropView alloc] initWithImage:rotatedImage];
+    [self setupCropView];
+    
+    // The crop view now has the rotated image as its base, so no additional rotation needed
+    _hasValidSavedState = NO;
 }
 
-// New methods for flipping and resetting with state preservation
 - (void)flipImageHorizontally {
-    if (_inlineCropView && _currentTransformedImage) {
-        UIImage *flippedImage = [self flipImageHorizontallyUsingOrientation:_currentTransformedImage];
-        _currentTransformedImage = flippedImage;
-        
-        // Remove current crop view and recreate with flipped image
-        [_inlineCropView removeFromSuperview];
-        _inlineCropView = [[TOCropView alloc] initWithImage:flippedImage];
-        [self setupCropView];
-        
-        // Don't restore rotation state - the flip is now part of the image
-        _hasValidSavedState = NO;
+    if (!_inlineCropView || !_currentTransformedImage) return;
+    
+    // Save current crop state
+    [self saveCropViewState];
+    
+    // Apply horizontal flip to the current transformed image
+    UIImage *flippedImage = [self flipImage:_currentTransformedImage horizontal:YES];
+    _currentTransformedImage = flippedImage;
+    
+    // Recreate the crop view with the flipped image
+    [_inlineCropView removeFromSuperview];
+    _inlineCropView = [[TOCropView alloc] initWithImage:flippedImage];
+    [self setupCropView];
+    
+    // Try to restore a similar crop frame
+    if (_hasValidSavedState && !CGRectIsEmpty(_savedCropFrame)) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self restoreCropFrame];
+        });
     }
 }
 
 - (void)flipImageVertically {
-    if (_inlineCropView && _currentTransformedImage) {
-        UIImage *flippedImage = [self flipImageVerticallyUsingDrawing:_currentTransformedImage];
-        _currentTransformedImage = flippedImage;
-        
-        // Remove current crop view and recreate with flipped image
-        [_inlineCropView removeFromSuperview];
-        _inlineCropView = [[TOCropView alloc] initWithImage:flippedImage];
-        [self setupCropView];
-        
-        // Don't restore rotation state - the flip is now part of the image
-        _hasValidSavedState = NO;
+    if (!_inlineCropView || !_currentTransformedImage) return;
+    
+    // Save current crop state
+    [self saveCropViewState];
+    
+    // Apply vertical flip to the current transformed image
+    UIImage *flippedImage = [self flipImage:_currentTransformedImage horizontal:NO];
+    _currentTransformedImage = flippedImage;
+    
+    // Recreate the crop view with the flipped image
+    [_inlineCropView removeFromSuperview];
+    _inlineCropView = [[TOCropView alloc] initWithImage:flippedImage];
+    [self setupCropView];
+    
+    // Try to restore a similar crop frame
+    if (_hasValidSavedState && !CGRectIsEmpty(_savedCropFrame)) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self restoreCropFrame];
+        });
     }
 }
 
 - (void)resetImage {
     if (_inlineCropView && _originalImage) {
-        _currentTransformedImage = _originalImage; // Reset current state to original
-        _hasValidSavedState = NO; // Clear saved state on reset
+        _currentTransformedImage = _originalImage;
+        _currentRotationAngle = 0;
+        _hasValidSavedState = NO;
         
         // Remove current crop view and recreate with original image
         [_inlineCropView removeFromSuperview];
@@ -188,27 +220,32 @@
 // Helper method to save current crop view state
 - (void)saveCropViewState {
     if (_inlineCropView) {
-        _savedAngle = _inlineCropView.angle;
+        _savedCropFrame = _inlineCropView.imageCropFrame;
+        _savedImageSize = _inlineCropView.imageViewFrame.size;
         _hasValidSavedState = YES;
+    }
+}
+
+// Helper method to restore crop frame after transformation
+- (void)restoreCropFrame {
+    if (!_inlineCropView || CGRectIsEmpty(_savedCropFrame)) return;
+    
+    // TOCropView doesn't expose direct crop frame setting
+    // Instead, we'll reset to center and let user re-crop if needed
+    [_inlineCropView moveCroppedContentToCenterAnimated:NO];
+    
+    // If we have a specific aspect ratio set, reapply it
+    if (!CGSizeEqualToSize(self->cropAspectRatio, CGSizeZero)) {
+        _inlineCropView.aspectRatio = self->cropAspectRatio;
     }
 }
 
 // Helper method to restore crop view state
 - (void)restoreCropViewState {
-    if (_inlineCropView && _hasValidSavedState) {
-        // Restore rotation by calculating the number of 90-degree rotations needed
+    // This method is now primarily for restoring crop frame
+    if (_hasValidSavedState && !CGRectIsEmpty(_savedCropFrame)) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (self->_inlineCropView && fabs(self->_savedAngle) > 0.001) {
-                // Convert angle to number of 90-degree rotations
-                int rotations = (int)round(self->_savedAngle / (M_PI_2));
-                rotations = rotations % 4; // Ensure it's between 0-3
-                if (rotations < 0) rotations += 4; // Handle negative angles
-                
-                // Apply the rotations
-                for (int i = 0; i < rotations; i++) {
-                    [self->_inlineCropView rotateImageNinetyDegreesAnimated:NO clockwise:YES];
-                }
-            }
+            [self restoreCropFrame];
         });
     }
 }
@@ -233,66 +270,54 @@
     [self addSubview:_inlineCropView];
 }
 
-// Horizontal flip using UIImage orientation (works well for mirroring)
-- (UIImage *)flipImageHorizontallyUsingOrientation:(UIImage *)image {
-    UIImageOrientation newOrientation;
+// Rotate image by degrees
+- (UIImage *)rotateImageByDegrees:(UIImage *)image degrees:(CGFloat)degrees {
+    CGFloat radians = degrees * (M_PI / 180.0);
     
-    switch (image.imageOrientation) {
-        case UIImageOrientationUp:
-            newOrientation = UIImageOrientationUpMirrored;
-            break;
-        case UIImageOrientationDown:
-            newOrientation = UIImageOrientationDownMirrored;
-            break;
-        case UIImageOrientationLeft:
-            newOrientation = UIImageOrientationRightMirrored;
-            break;
-        case UIImageOrientationRight:
-            newOrientation = UIImageOrientationLeftMirrored;
-            break;
-        case UIImageOrientationUpMirrored:
-            newOrientation = UIImageOrientationUp;
-            break;
-        case UIImageOrientationDownMirrored:
-            newOrientation = UIImageOrientationDown;
-            break;
-        case UIImageOrientationLeftMirrored:
-            newOrientation = UIImageOrientationLeft;
-            break;
-        case UIImageOrientationRightMirrored:
-            newOrientation = UIImageOrientationRight;
-            break;
-        default:
-            newOrientation = UIImageOrientationUpMirrored;
-            break;
-    }
+    // Calculate the size of the rotated image
+    CGRect rotatedRect = CGRectApplyAffineTransform(CGRectMake(0, 0, image.size.width, image.size.height),
+                                                     CGAffineTransformMakeRotation(radians));
+    CGSize rotatedSize = rotatedRect.size;
     
-    return [[UIImage alloc] initWithCGImage:image.CGImage scale:image.scale orientation:newOrientation];
-}
-
-// Vertical flip using hybrid approach: horizontal flip + 180 rotation + horizontal flip
-- (UIImage *)flipImageVerticallyUsingDrawing:(UIImage *)image {
-    // To get a pure vertical flip, we can do: horizontal flip + 180° rotation + horizontal flip
-    // This results in just a vertical flip
+    // Create a context with the rotated size
+    UIGraphicsBeginImageContextWithOptions(rotatedSize, NO, image.scale);
+    CGContextRef context = UIGraphicsGetCurrentContext();
     
-    // Step 1: Horizontal flip
-    UIImage *step1 = [self flipImageHorizontallyUsingOrientation:image];
+    // Move origin to center, rotate, then move back
+    CGContextTranslateCTM(context, rotatedSize.width / 2, rotatedSize.height / 2);
+    CGContextRotateCTM(context, radians);
+    CGContextTranslateCTM(context, -image.size.width / 2, -image.size.height / 2);
     
-    // Step 2: 180-degree rotation (which is vertical flip + horizontal flip)
-    UIImage *step2 = [[UIImage alloc] initWithCGImage:step1.CGImage 
-                                                scale:step1.scale 
-                                          orientation:UIImageOrientationDown];
+    // Draw the image
+    [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
     
-    // Step 3: Horizontal flip again (to cancel out the horizontal component from step 2)
-    UIImage *step3 = [self flipImageHorizontallyUsingOrientation:step2];
-    
-    // Step 4: Render the final result
-    UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
-    [step3 drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
-    UIImage *finalImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIImage *rotatedImage = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     
-    return finalImage;
+    return rotatedImage;
+}
+
+// Flip image horizontally or vertically
+- (UIImage *)flipImage:(UIImage *)image horizontal:(BOOL)horizontal {
+    UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    
+    if (horizontal) {
+        // Horizontal flip: flip x-axis
+        CGContextTranslateCTM(context, image.size.width, 0);
+        CGContextScaleCTM(context, -1.0, 1.0);
+    } else {
+        // Vertical flip: flip y-axis
+        CGContextTranslateCTM(context, 0, image.size.height);
+        CGContextScaleCTM(context, 1.0, -1.0);
+    }
+    
+    [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
+    
+    UIImage *flippedImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    
+    return flippedImage;
 }
 
 @end
