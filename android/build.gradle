@@ -31,6 +31,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace "com.roli5005.ImageCropTools"
     compileSdkVersion safeExtGet('compileSdkVersion', 31)
     defaultConfig {
         minSdkVersion safeExtGet('minSdkVersion', 17)
@@ -49,5 +50,6 @@ android {
 dependencies {
     api "com.facebook.react:react-native:+"
     implementation 'com.github.CanHub:Android-Image-Cropper:4.1.0'
-    implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }

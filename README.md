@@ -9,6 +9,8 @@ This is a fork of [hhunaid/react-native-image-crop-tools](https://github.com/hhu
 - Added `flipImageVertically()` method
 - Added `resetImage()` method
 - Added proper transformation chains
+- Added prebuilt UI
+- Custom list of aspect ratios for prebuilt UI component
 
 ## Credits
 Original library created by [Hunaid Hassan](https://github.com/hhunaid).
@@ -42,6 +44,8 @@ Most cropping tools available for RN are usually wrappers over popular native to
 3. Change and lock/unlock aspect ratio on the fly (This is the main reason I am making this library)
 4. Flip image vertically and horizontally.
 5. Image transformations (rotate, flip) now properly compound and preserve their cumulative effect - for example, rotating left then flipping horizontally keeps the image rotated while flipping its content, rather than resetting to the original orientation.
+6. Added new component EnhancedCropView, that has aspect ratio selector and image transformation UI components.
+7. Added new field: customAspectRatios, where you can add your own list of aspect ratios that you wan to use.
 
 # NOTE
 
@@ -59,6 +63,25 @@ import { CropView } from 'react-native-image-crop-tools';
           keepAspectRatio
           aspectRatio={{width: 16, height: 9}}
         />
+```
+```javascript
+import { EnhancedCropView } from 'react-native-image-crop-tools'
+
+      const customAspectRatios: AspectRatio[] = [
+        { label: 'Free', value: null }, // if value is null, the crop size is draggable freely
+        { label: 'My Custom Aspect Ratio', value: { width: 1, height: 1 } },
+      ];
+
+      <EnhancedCropView
+        sourceUrl={uri}
+        style={styles.cropView}
+        ref={cropViewRef}
+        onImageCrop={(res) => console.warn(res)}
+        keepAspectRatio
+        aspectRatio={{width: 16, height: 9}}
+        customAspectRatios={customAspectRatios}
+      />
+
 ```
 
 The following methods are exposed on the ref. You can use them as follows
@@ -78,10 +101,6 @@ The following methods are exposed on the ref. You can use them as follows
 | sourceUrl | URL of the source image | `null` |
 | aspectRatio | Aspect ratio of the cropped image | `null` |
 | keepAspectRatio | Locks the aspect ratio to given aspect ratio | `false` |
+| customAspectRatios | (EnhancedCropView only) (Optional) Replaces the default list of aspect ratios  | `undefined` |
 | iosDimensionSwapEnabled | (iOS Only) Swaps the width and height of the crop rectangle upon rotation | `false` |
 
-#### TODO:
-
-- [x] Add screenshots
-- [x] Support transparency
-- [ ] Add access to prebuilt UI for those who want to use it.

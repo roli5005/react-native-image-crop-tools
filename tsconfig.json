@@ -3,6 +3,7 @@
     "experimentalDecorators": true,
     "declaration": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -21,6 +22,7 @@
   "exclude": [
     "node_modules",
     "**/__tests__/*",
+    "example",
     "dist"
   ]
 }

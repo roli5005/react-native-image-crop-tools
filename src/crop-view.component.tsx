@@ -5,10 +5,19 @@ import {
   requireNativeComponent,
   StyleProp,
   UIManager,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 
-const RCTCropView = requireNativeComponent('CropView');
+interface RCTCropViewProps extends ViewProps {
+  sourceUrl: string;
+  cropAspectRatio?: { width: number; height: number };
+  onImageSaved?: (event: NativeSyntheticEvent<Response>) => void;
+  keepAspectRatio?: boolean;
+  iosDimensionSwapEnabled?: boolean;
+}
+
+const RCTCropView = requireNativeComponent<RCTCropViewProps>('CropView');
 
 type Response = {
   uri: string;
@@ -82,7 +91,7 @@ class CropView extends React.PureComponent<Props> {
         ref={this.viewRef}
         cropAspectRatio={aspectRatio}
         onImageSaved={(event: NativeSyntheticEvent<Response>) => {
-          onImageCrop!(event.nativeEvent);
+          onImageCrop?.(event.nativeEvent);
         }}
         {...rest}
       />

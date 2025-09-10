@@ -17,6 +17,11 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.*
 
+import java.net.URL
+import java.net.HttpURLConnection
+import android.graphics.BitmapFactory
+import kotlinx.coroutines.*
+
 class ImageCropViewManager: SimpleViewManager<CropImageView>() {
 
     companion object {
@@ -173,76 +178,129 @@ class ImageCropViewManager: SimpleViewManager<CropImageView>() {
     @ReactProp(name = SOURCE_URL_PROP)
     fun setSourceUrl(view: CropImageView, url: String?) {
         Log.d(TAG, "setSourceUrl called with: $url")
-
+        
         if (url.isNullOrEmpty()) {
             Log.w(TAG, "Source URL is null or empty")
             return
         }
-
+        
         val viewState = viewStateMap[view.id]
         if (viewState == null) {
             Log.e(TAG, "No view state found for view ${view.id}, creating new one")
             viewStateMap[view.id] = ViewState()
         }
-
-        try {
-            val uri = when {
-                url.startsWith("file://") -> Uri.parse(url)
-                url.startsWith("content://") -> Uri.parse(url)
-                url.startsWith("http://") || url.startsWith("https://") -> Uri.parse(url)
-                url.startsWith("/") -> Uri.fromFile(File(url))
-                else -> Uri.parse(url)
-            }
-
-            Log.d(TAG, "Parsed URI: $uri")
-
-            viewStateMap[view.id]?.let { state ->
-                val isNewSource = url != state.lastSourceUrl
-
-                if (isNewSource) {
-                    // New image - reset all state
-                    state.originalImageUri = uri
-                    state.lastSourceUrl = url
-                    state.totalRotation = 0
-                    state.isFlippedHorizontally = false
-                    state.isFlippedVertically = false
-                    state.cropRect = null
-
-                    // Load and store the original bitmap
-                    try {
-                        val bitmap = android.provider.MediaStore.Images.Media.getBitmap(
-                            view.context.contentResolver,
-                            uri
-                        )
-                        state.originalBitmap = bitmap
-                        state.currentTransformedBitmap = bitmap.copy(bitmap.config, true)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error loading bitmap", e)
+        
+        viewStateMap[view.id]?.let { state ->
+            val isNewSource = url != state.lastSourceUrl
+            
+            if (isNewSource) {
+                // New image - reset all state
+                state.lastSourceUrl = url
+                state.totalRotation = 0
+                state.isFlippedHorizontally = false
+                state.isFlippedVertically = false
+                state.cropRect = null
+                
+                Log.d(TAG, "New source detected, resetting state")
+                
+                // Handle different URL types
+                when {
+                    url.startsWith("http://") || url.startsWith("https://") -> {
+                        // Handle network/Metro URLs by downloading first
+                        Log.d(TAG, "Loading network image: $url")
+                        loadNetworkImage(view, url, state)
                     }
-
-                    Log.d(TAG, "New source detected, resetting state")
-                }
-
-                // Set the image
-                view.post {
-                    try {
-                        if (state.currentTransformedBitmap != null) {
-                            view.setImageBitmap(state.currentTransformedBitmap)
-                        } else {
-                            view.setImageUriAsync(uri)
+                    else -> {
+                        // Handle local files
+                        try {
+                            val uri = when {
+                                url.startsWith("file://") -> Uri.parse(url)
+                                url.startsWith("content://") -> Uri.parse(url)
+                                url.startsWith("/") -> Uri.fromFile(File(url))
+                                else -> Uri.parse(url)
+                            }
+                            
+                            state.originalImageUri = uri
+                            
+                            // Load bitmap for local files
+                            try {
+                                val bitmap = android.provider.MediaStore.Images.Media.getBitmap(
+                                    view.context.contentResolver,
+                                    uri
+                                )
+                                state.originalBitmap = bitmap
+                                state.currentTransformedBitmap = bitmap.copy(
+                                    bitmap.config ?: Bitmap.Config.ARGB_8888, 
+                                    true
+                                )
+                                
+                                view.post {
+                                    view.setImageBitmap(state.currentTransformedBitmap)
+                                    Log.d(TAG, "Local image set successfully")
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error loading local bitmap", e)
+                                // Fallback to URI
+                                view.post {
+                                    view.setImageUriAsync(uri)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing local URL: $url", e)
                         }
-                        Log.d(TAG, "Image set successfully")
-                        view.requestLayout()
-                        view.invalidate()
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error setting image", e)
+                    }
+                }
+            } else {
+                // Same source, use existing transformed bitmap
+                state.currentTransformedBitmap?.let { bitmap ->
+                    view.post {
+                        view.setImageBitmap(bitmap)
+                        Log.d(TAG, "Reusing existing transformed image")
                     }
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing or setting source URL: $url", e)
         }
     }
+
+    private fun loadNetworkImage(view: CropImageView, url: String, state: ViewState) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.doInput = true
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.connect()
+                
+                val inputStream = connection.inputStream
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                connection.disconnect()
+                
+                withContext(Dispatchers.Main) {
+                    if (bitmap != null) {
+                        // Store in state
+                        state.originalBitmap = bitmap
+                        state.currentTransformedBitmap = bitmap.copy(
+                            bitmap.config ?: Bitmap.Config.ARGB_8888,
+                            true
+                        )
+                        
+                        // Set on view
+                        view.setImageBitmap(state.currentTransformedBitmap)
+                        view.requestLayout()
+                        view.invalidate()
+                        
+                        Log.d(TAG, "Network image loaded successfully")
+                    } else {
+                        Log.e(TAG, "Failed to decode bitmap from URL")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading network image: $url", e)
+            }
+        }
+    }
+    
 
     @ReactProp(name = KEEP_ASPECT_RATIO_PROP)
     fun setFixedAspectRatio(view: CropImageView, fixed: Boolean) {
@@ -356,7 +414,7 @@ class ImageCropViewManager: SimpleViewManager<CropImageView>() {
                 }
 
                 // Reset state
-                viewState.currentTransformedBitmap = originalBitmap.copy(originalBitmap.config, true)
+                viewState.currentTransformedBitmap = originalBitmap.copy(originalBitmap.config ?: Bitmap.Config.ARGB_8888, true)
                 viewState.totalRotation = 0
                 viewState.isFlippedHorizontally = false
                 viewState.isFlippedVertically = false
@@ -442,8 +500,23 @@ class ImageCropViewManager: SimpleViewManager<CropImageView>() {
             // Enable showing the crop overlay
             isShowCropOverlay = true
 
+            setBackgroundColor(android.graphics.Color.LTGRAY)
+
+            setOnSetImageUriCompleteListener { _, uri, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error loading image from URI: $uri", error)
+                } else {
+                    Log.d(TAG, "Image loaded successfully: $uri")
+                    Log.d(TAG, "Image bitmap: ${croppedImage}")
+                }
+            }
+
             // Set crop shape to rectangle by default
             cropShape = CropImageView.CropShape.RECTANGLE
+
+            post {
+                Log.d(TAG, "CropView dimensions: ${width}x${height}")
+            }
         }
     }
 
