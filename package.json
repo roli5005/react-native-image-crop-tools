@@ -1,7 +1,7 @@
 {
   "name": "@roli5005/react-native-image-crop-tools",
   "title": "React Native Image Crop Tools",
-  "version": "1.9.8",
+  "version": "1.9.9",
   "description": "Native image crop tools with embeddable UI and on the fly aspect ratio switchin",
   "files": [
     "dist",
