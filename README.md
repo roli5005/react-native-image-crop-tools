@@ -19,8 +19,8 @@ Enhanced by Soos Roland.
 
 ## Previews
 <p float="left">
-  <img src="https://github.com/hhunaid/react-native-image-crop-tools/blob/master/previews/android-preview.gif?raw=true" width="150" />
-  <img src="https://github.com/hhunaid/react-native-image-crop-tools/blob/master/previews/ios-preview.gif?raw=true" width="150" /> 
+  <img src="https://github.com/roli5005/react-native-image-crop-tools/blob/master/previews/android-preview.gif?raw=true" width="150" />
+  <img src="https://github.com/roli5005/react-native-image-crop-tools/blob/master/previews/ios-preview.gif?raw=true" width="150" /> 
 </p>
 
 ## Getting started
