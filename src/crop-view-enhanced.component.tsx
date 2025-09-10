@@ -1,5 +1,5 @@
 import React, { createRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { FlatList, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CropView from './crop-view.component';
 
 export type AspectRatio = {
@@ -45,7 +45,9 @@ const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
 
   const getCurrentLabel = () => {
-    if (!selectedRatio) return 'Free';
+    if (!selectedRatio) {
+      return 'Free';
+    }
 
     if (customAspectRatios !== undefined) {
       const found = customAspectRatios.find(

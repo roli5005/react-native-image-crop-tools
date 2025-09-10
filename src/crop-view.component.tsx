@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-interface RCTCropViewProps extends ViewProps {
+interface IRCTCropViewProps extends ViewProps {
   sourceUrl: string;
   cropAspectRatio?: { width: number; height: number };
   onImageSaved?: (event: NativeSyntheticEvent<Response>) => void;
@@ -17,7 +17,7 @@ interface RCTCropViewProps extends ViewProps {
   iosDimensionSwapEnabled?: boolean;
 }
 
-const RCTCropView = requireNativeComponent<RCTCropViewProps>('CropView');
+const RCTCropView = requireNativeComponent<IRCTCropViewProps>('CropView');
 
 type Response = {
   uri: string;
